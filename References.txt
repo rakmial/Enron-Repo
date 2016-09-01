@@ -1,0 +1,17 @@
+SKLearn documentation: 
+http://scikit-learn.org/stable/documentation.html
+
+StackOverflow and StackExchange:
+http://stackoverflow.com/questions/19410042/how-to-make-ipython-notebook-matplotlib-plot-inline
+http://stackoverflow.com/questions/9039961/finding-the-average-of-a-list
+http://stackoverflow.com/questions/11177533/whats-the-difference-between-plus-and-append-in-python-for-list-manipulation
+http://stackoverflow.com/questions/3653298/concatenating-two-lists-difference-between-and-extend
+http://stackoverflow.com/questions/5844672/delete-an-element-from-a-dictionary
+http://stackoverflow.com/questions/17725927/boxplots-in-matplotlib-markers-and-outliers
+http://stackoverflow.com/questions/7881994/matplotlib-how-to-change-data-points-color-based-on-some-variable
+https://stackoverflow.com/questions/11508788/whats-the-difference-between-libsvm-and-liblinear
+http://datascience.stackexchange.com/questions/989/svm-using-scikit-learn-runs-endlessly-and-never-completes-execution
+http://stackoverflow.com/questions/31059123/scikit-learn-feature-reduction-using-rfecv-and-gridsearch-where-are-the-coeff
+http://stackoverflow.com/questions/23045318/scikit-grid-search-over-multiple-classifiers-python
+
+Some questions were answered on the Udacity forums and may be found by searching for my username, 'rakmial'. Thank you to forum mentors and students that helped!
