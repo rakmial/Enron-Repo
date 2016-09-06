@@ -1,17 +1,16 @@
-#!/usr/bin/python
 
 import sys
 import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 
-sys.path.append("../tools/")
+sys.path.append("C:/Users/Bash/Desktop/Udacity/2_Data_Analysis/P5-ML/ud120-projects/tools/")
 from feature_format import featureFormat, targetFeatureSplit
 from tester import dump_classifier_and_data,load_classifier_and_data,test_classifier
 from sklearn.naive_bayes import GaussianNB
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import GradientBoostingClassifier, AdaBoostClassifier, RandomForestClassifier, VotingClassifier
-from sklearn.svm import LinearSVC, SVC
-from sklearn.feature_selection import SelectKBest, f_classif, RFECV
+from sklearn.feature_selection import SelectKBest, f_classif, RFECV, SelectFdr
 from sklearn.cross_validation import StratifiedKFold, StratifiedShuffleSplit
 from sklearn.metrics import f1_score
 
@@ -39,17 +38,22 @@ my_dataset = data_dict
 data = featureFormat(my_dataset, features_list, sort_keys = True)
 labels, features = targetFeatureSplit(data)
 
-## Recursive feature elimination using .coef_ from a simple linear SVC, selects 
-def feature_select(labels,features,numbest=5):
-    svc = LinearSVC(random_state=42)
-    rfecv = RFECV(estimator=svc, step=1, cv=StratifiedKFold(labels, n_folds=18,shuffle=True,random_state=42),
-                  scoring='accuracy')
-    rfecv.fit(features,labels)
-    rfecv.fit(features,labels)     
-    print("Optimal number of features : %d" % rfecv.n_features_) 
-    
-    BestFeatures = SelectKBest(score_func=f_classif,k=numbest)
+## Recursive feature elimination
+def feature_select(labels,features,alfa=0.4):
+    dct = DecisionTreeClassifier(random_state=42)
+    rfecv1 = RFECV(estimator=dct, step=1, cv=StratifiedKFold(labels, n_folds=6,shuffle=True,random_state=42),
+                  scoring='recall')
+    rfecv2 = RFECV(estimator=dct, step=1, cv=StratifiedKFold(labels, n_folds=6,shuffle=True,random_state=42),
+              scoring='precision')
+    rfecv1.fit(features,labels)     
+    rfecv2.fit(features,labels)
+    print("Optimal number of features - Recall : %d" % rfecv1.n_features_) 
+    print("Optimal number of features - Precision : %d" % rfecv2.n_features_)
+ 
+    BestFeatures = SelectFdr(score_func=f_classif,alpha=alfa)
     BestFeatures.fit_transform(features,labels)
+#    BestFeatures = SelectKBest(score_func=f_classif,k=numbest)
+#    BestFeatures.fit_transform(features,labels)
     feature_scores = BestFeatures.scores_
     feature_pvalues = BestFeatures.pvalues_
     best_feat_indices = BestFeatures.get_support(indices=True)
@@ -66,8 +70,12 @@ def feature_select(labels,features,numbest=5):
     
     plt.figure()
     plt.xlabel("Number of features selected")
-    plt.ylabel("Cross validation score (# correct classifications)")
-    plt.plot(range(1, len(rfecv.grid_scores_) + 1), rfecv.grid_scores_)
+    plt.ylabel("Recall & Precision")
+    plt.plot(range(1, len(rfecv1.grid_scores_) + 1), rfecv1.grid_scores_,
+             label='Recall',color='blue')
+    plt.plot(range(1, len(rfecv2.grid_scores_) + 1), rfecv2.grid_scores_,
+             label='Precision',color='green')
+    plt.legend()
     plt.show()
 
 feature_select(labels,features)
@@ -98,87 +106,6 @@ labels, features = targetFeatureSplit(data)
 # Let's check a couple of plots to see how POI info differs from non-POI and see whether
 # outliers will be an issue
 
-def analyze_features(labels,features):
-    poi_receipts = []
-    poi_stocks = []
-    poi_bonuses = []
-    npoi_receipts = []
-    npoi_stocks = []
-    npoi_bonuses = []
-    
-    for i in range(len(labels)):
-        if labels[i] == 0:
-            npoi_receipts.append(features[i][0])
-            npoi_stocks.append(features[i][1])
-            npoi_bonuses.append(features[i][2])
-        if labels[i] == 1:
-            poi_receipts.append(features[i][0])
-            poi_stocks.append(features[i][1])
-            poi_bonuses.append(features[i][2])
-    
-    receipts = [npoi_receipts,poi_receipts]
-    stocks = [npoi_stocks,poi_stocks]
-    bonuses = [npoi_bonuses,poi_bonuses]    
-    plot_labels = ['non-POI','POI']
-    
-    plt.figure()           
-    plt.boxplot(receipts,showmeans=True)
-    plt.ylabel("Shared Email Receipt with POI")
-    plt.xticks([1,2],plot_labels)
-    plt.show()
-    
-    plt.figure()           
-    plt.boxplot(stocks,showmeans=True)
-    plt.ylabel("Exercised Stock Options")
-    plt.xticks([1,2],plot_labels)
-    plt.show()
-    
-    plt.figure()           
-    plt.boxplot(bonuses,showmeans=True)
-    plt.ylabel("Bonuses")
-    plt.xticks([1,2],plot_labels)
-    plt.show()
-    
-analyze_features(labels,features)
-
-# We certainly have problematic outliers in our financial data, and I think I know
-# what it is. It was mentioned previously that there is a 'Total' category in our data dictionary.
-# This point must be dropped before we can continue.
-
-del my_dataset['TOTAL']
-
-data = featureFormat(my_dataset, features_list, sort_keys = True)
-labels, features = targetFeatureSplit(data)
-
-analyze_features(labels,features)
-
-# Much better. I'm curious whether the TOTAL dictionary entry may have thrown off the original feature
-# elimination, so I contained it within a function and ran it again on the de-outliered data.
-
-features_list = ['poi','salary', 'deferral_payments', 'total_payments', 'loan_advances',
-                 'bonus', 'restricted_stock_deferred', 'deferred_income', 
-                 'total_stock_value', 'expenses', 'exercised_stock_options', 
-                 'other', 'long_term_incentive', 'restricted_stock', 
-                 'director_fees','to_messages', 
-                 'from_poi_to_this_person', 'from_messages', 
-                 'from_this_person_to_poi', 'shared_receipt_with_poi']
-                 
-data = featureFormat(my_dataset, features_list, sort_keys = True)
-labels, features = targetFeatureSplit(data)
-
-feature_select(labels,features,numbest=6)
-
-# Wow! That is an extremely different result. The removal of the TOTAL outliers completely
-# altered the landscape of which variables produce the best scores, their p-values, AND which
-# features SelectKBest chooses. That single dictionary entry outlier had wrecked our financial data work.
-
-features_list = ['poi','salary','bonus','deferred_income','total_stock_value',
-                'exercised_stock_options','long_term_incentive']
-data = featureFormat(my_dataset, features_list, sort_keys = True)
-labels, features = targetFeatureSplit(data)
-
-# I'm kicking myself now for not making a more generalized version of analyze features. Better late than never!
-
 def analyze_feature(feature_list,feature_num,labels,features):
     poi_feature_ob =[]
     npoi_feature_ob =[]
@@ -206,9 +133,58 @@ def analyze_features(feature_list,labels,features):
         
 analyze_features(features_list,labels,features)
 
-# Now that looks really good. There are many outliers, but they are well within expectations.
-# We now have our data shaped and understood well enough to run our classifier.
-   
+del my_dataset['TOTAL']
+
+data = featureFormat(my_dataset, features_list, sort_keys = True)
+labels, features = targetFeatureSplit(data)
+
+analyze_features(features_list,labels,features)
+
+features_list = ['poi','salary', 'deferral_payments', 'total_payments', 'loan_advances',
+                 'bonus', 'restricted_stock_deferred', 'deferred_income', 
+                 'total_stock_value', 'expenses', 'exercised_stock_options', 
+                 'other', 'long_term_incentive', 'restricted_stock', 
+                 'director_fees','to_messages', 
+                 'from_poi_to_this_person', 'from_messages', 
+                 'from_this_person_to_poi', 'shared_receipt_with_poi']
+                 
+data = featureFormat(my_dataset, features_list, sort_keys = True)
+labels, features = targetFeatureSplit(data)
+
+feature_select(labels,features,alfa=0.01)
+
+# Create added feature of all POI-related email variables
+
+for entry in my_dataset:
+    poi_track = 0
+    if my_dataset[entry]['from_poi_to_this_person'] != 'NaN':
+        poi_track = my_dataset[entry]['from_poi_to_this_person']
+    if my_dataset[entry]['from_this_person_to_poi'] != 'NaN':
+        poi_track += my_dataset[entry]['from_this_person_to_poi']
+    if my_dataset[entry]['shared_receipt_with_poi'] != 'NaN':
+        poi_track += my_dataset[entry]['shared_receipt_with_poi']
+    my_dataset[entry]['poi_email_contact'] = poi_track
+    
+    
+features_list = ['poi','salary', 'deferral_payments', 'total_payments', 'loan_advances',
+                 'bonus', 'restricted_stock_deferred', 'deferred_income', 
+                 'total_stock_value', 'expenses', 'exercised_stock_options', 
+                 'other', 'long_term_incentive', 'restricted_stock', 
+                 'director_fees','poi_email_contact']
+                 
+data = featureFormat(my_dataset, features_list, sort_keys = True)
+labels, features = targetFeatureSplit(data)
+
+feature_select(labels,features,alfa=0.01)
+
+
+features_list = ['poi','salary','bonus','deferred_income','total_stock_value',
+                'exercised_stock_options','long_term_incentive']
+data = featureFormat(my_dataset, features_list, sort_keys = True)
+labels, features = targetFeatureSplit(data)
+        
+analyze_features(features_list,labels,features)
+  
 PERF_FORMAT_STRING = "\
 \tAccuracy: {:>0.{display_precision}f}\tPrecision: {:>0.{display_precision}f}\t\
 Recall: {:>0.{display_precision}f}\tF1: {:>0.{display_precision}f}\tF2: {:>0.{display_precision}f}"
@@ -219,8 +195,7 @@ clf = GaussianNB()
 clf2 = GradientBoostingClassifier(random_state=42)
 clf3 = AdaBoostClassifier(random_state=42)
 clf4 = RandomForestClassifier(random_state=42)
-clf5 = SVC(C=1000.0,probability=True,random_state=42)
-clf_list = [('gnb',clf),('grdbst',clf2),('adabst',clf3),('rdmfst',clf4),('svc',clf5)]
+clf_list = [('gnb',clf),('grdbst',clf2),('adabst',clf3),('rdmfst',clf4)]
 
 clfvote = VotingClassifier(estimators=clf_list,voting='soft')
 
@@ -233,7 +208,6 @@ clf_f1 = []
 clf2_f1 = []
 clf3_f1 = []
 clf4_f1 = []
-clf5_f1 = []
 clfvote_f1 = []
 
 for train_idx, test_idx in cv: 
@@ -253,21 +227,18 @@ for train_idx, test_idx in cv:
     clf2.fit(features_train, labels_train)
     clf3.fit(features_train, labels_train)
     clf4.fit(features_train, labels_train)
-    clf5.fit(features_train, labels_train)
     clfvote.fit(features_train, labels_train)
     
     predictions1 = clf.predict(features_test)
     predictions2 = clf2.predict(features_test)
     predictions3 = clf3.predict(features_test)
     predictions4 = clf4.predict(features_test)
-    predictions5 = clf5.predict(features_test)
     predictions = clfvote.predict(features_test)
  
     clf_f1.append(f1_score(labels_test,predictions1))
     clf2_f1.append(f1_score(labels_test,predictions2))
     clf3_f1.append(f1_score(labels_test,predictions3))
     clf4_f1.append(f1_score(labels_test,predictions4))
-    clf5_f1.append(f1_score(labels_test,predictions5))
     clfvote_f1.append(f1_score(labels_test,predictions))
     
     # Added after GaussianNB() known to be best clf to evaluate
@@ -290,7 +261,6 @@ print 'Gaussian Naive Bayes Avg F1:', np.mean(clf_f1)
 print 'Gradient Boost Avg F1:', np.mean(clf2_f1)
 print 'AdaBoost Avg F1:', np.mean(clf3_f1)
 print 'Random Forest Avg F1:', np.mean(clf4_f1)
-print 'SVC Avg F1:', np.mean(clf5_f1)
 print 'Soft Vote Avg F1:', np.mean(clfvote_f1)
 
 try:
